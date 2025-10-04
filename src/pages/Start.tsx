@@ -4,7 +4,7 @@ export function Start() {
   const navigate = useNavigate();
 
   const handleStart = () => {
-    navigate("/go");
+    navigate("/throw");
   };
 
   return (

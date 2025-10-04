@@ -32,25 +32,27 @@ function hasPostCatchStationary(
   return false
 }
 
-export function ThrowPage() {
+interface ThrowPageProps {
+  permissionsEnabled?: boolean;
+}
+
+export function ThrowPage({ permissionsEnabled = false }: ThrowPageProps) {
   const { listening, recording, permissionError, data, start, stop, snapshot } = useSensorRecorder(G)
   const [result, setResult] = useState<ReturnType<typeof computeHeightMethod1FromRecord> | null>(null)
   const rafRef = useRef<number | null>(null)
-  const [autoTried, setAutoTried] = useState(false)
+  const [hasStarted, setHasStarted] = useState(false)
 
-  // Try to auto-start on mount (will be blocked on iOS Safari without a gesture)
+  // Auto-start recording when permissions are enabled
   useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try { await start() } catch {}
-      if (mounted) setAutoTried(true)
-    })()
+    if (permissionsEnabled && !hasStarted && !recording) {
+      setHasStarted(true);
+      start().catch(() => {});
+    }
     return () => {
-      mounted = false
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [permissionsEnabled, hasStarted])
 
   // Live detection loop → auto-stop when fall completed
   useEffect(() => {
@@ -89,27 +91,34 @@ export function ThrowPage() {
     setResult(res)
   }, [data])
 
+  const handleRestart = () => {
+    setResult(null);
+    setHasStarted(false);
+    start().catch(() => {});
+  };
+
   const status = useMemo(() => {
     if (permissionError) return `Permission error: ${permissionError}`
     if (recording) return "Recording… toss the phone now"
     if (listening) return "Listening…"
     if (result?.ok) return "Done"
     if (result && !result.ok) return `Ended, but analysis failed: ${result.reason}`
-    return autoTried ? "Tap to enable sensors" : "Initializing…"
-  }, [permissionError, listening, recording, result, autoTried])
+    if (!permissionsEnabled) return "Permissions not yet enabled"
+    return "Initializing…"
+  }, [permissionError, listening, recording, result, permissionsEnabled])
 
   return (
     <div className="p-4 bg-gray-900 text-white rounded-xl space-y-3">
       <h2 className="text-xl font-semibold">Auto Measure (Method 1)</h2>
       <div className="text-sm text-gray-300">{status}</div>
 
-      {/* Tap-to-enable button (shown when not recording and not listening) */}
-      {!recording && !listening && (
+      {/* Restart button after throw is complete */}
+      {result && !recording && (
         <button
-          onClick={() => start()}
+          onClick={handleRestart}
           className="mt-1 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 font-semibold"
         >
-          Tap to enable sensors
+          Restart
         </button>
       )}
 
@@ -124,9 +133,9 @@ export function ThrowPage() {
         </div>
       )}
 
-      {!result?.ok && (
+      {!result?.ok && !recording && !permissionsEnabled && (
         <div className="text-xs text-gray-400">
-          If the button doesn’t work, make sure the page is served over HTTPS and try again.
+          Please enable sensor permissions from the disclaimer page first.
         </div>
       )}
     </div>

@@ -1,9 +1,36 @@
 interface DisclaimerProps {
   onNext: () => void;
   onSkip: () => void;
+  onPermissionsEnabled?: () => void;
 }
 
-export function Disclaimer({ onNext, onSkip }: DisclaimerProps) {
+export function Disclaimer({ onNext, onSkip, onPermissionsEnabled }: DisclaimerProps) {
+  const requestPermissions = async () => {
+    try {
+      const dm: any = (window as any).DeviceMotionEvent;
+      const dor: any = (window as any).DeviceOrientationEvent;
+      const needsPermission =
+        (dm && typeof dm.requestPermission === "function") ||
+        (dor && typeof dor.requestPermission === "function");
+
+      if (needsPermission) {
+        const reqs: Promise<string>[] = [];
+        if (dm?.requestPermission) reqs.push(dm.requestPermission());
+        if (dor?.requestPermission) reqs.push(dor.requestPermission());
+        const results = await Promise.allSettled(reqs);
+        const ok = results.some(
+          (r) => r.status === "fulfilled" && r.value === "granted"
+        );
+        if (!ok) throw new Error("Motion/Orientation permission was not granted");
+      }
+      
+      onPermissionsEnabled?.();
+      onNext();
+    } catch (err) {
+      alert("Could not enable sensor permissions. Please try again.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black overflow-hidden">
       <div className="flex flex-col items-center justify-center h-full p-8 text-white">
@@ -42,10 +69,10 @@ export function Disclaimer({ onNext, onSkip }: DisclaimerProps) {
             Skip to Start
           </button>
           <button
-            onClick={onNext}
+            onClick={requestPermissions}
             className="px-6 py-3 bg-green-300 text-black rounded-lg hover:bg-green-400 transition-colors"
           >
-            I Agree & Continue
+            I Agree
           </button>
         </div>
       </div>

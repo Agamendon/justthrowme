@@ -5,9 +5,12 @@ import { Disclaimer } from "./pages/Disclaimer";
 import { Start } from "./pages/Start";
 import { Main } from "./pages/Main";
 import { ThrowPage } from "./pages/ThrowPage";
+import { useState } from "react";
 
 function App() {
   const navigate = useNavigate();
+  const [permissionsEnabled, setPermissionsEnabled] = useState(false);
+  
   const handleNextFromInstructions = () => {
     navigate("/onboarding/disclaimer");
   };
@@ -18,6 +21,10 @@ function App() {
 
   const handleSkip = () => {
     navigate("/onboarding/start");
+  };
+  
+  const handlePermissionsEnabled = () => {
+    setPermissionsEnabled(true);
   };
 
   return (
@@ -35,12 +42,16 @@ function App() {
       <Route
         path="/onboarding/disclaimer"
         element={
-          <Disclaimer onNext={handleNextFromDisclaimer} onSkip={handleSkip} />
+          <Disclaimer 
+            onNext={handleNextFromDisclaimer} 
+            onSkip={handleSkip}
+            onPermissionsEnabled={handlePermissionsEnabled}
+          />
         }
       />
       <Route path="/onboarding/start" element={<Start />} />
       <Route path="/go" element={<Main />} />
-      <Route path="/throw" element={<ThrowPage />} />
+      <Route path="/throw" element={<ThrowPage permissionsEnabled={permissionsEnabled} />} />
     </Routes>
   );
 }
