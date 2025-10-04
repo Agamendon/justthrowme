@@ -163,13 +163,13 @@ export default function ThrowHeight({
   worldOmegas,
   g = 9.80665,
   smoothN = 5,
-  minFreeFallMs = 60,            // ↓ allow very short throws
+  // thresholds (may be auto-tuned)
+  freeFallALinThresh = 0.6,   // fallback accel-only detector
+  minFreeFallMs = 80,         // allow short throws
   stationaryWindowMs = 250,
-  freeFallALinThresh,            // adaptive by default
-  gyroThresh,                    // adaptive by default
-  totValleyFracG = 0.35,         // |a_tot| < 0.35 g counts as free-fall hint
   launchWindowMs = 200,
 }: ThrowHeightProps) {
+  // ---- early outs ----
   if (!worldAccels || worldAccels.length < 8) {
     return (
       <div className="p-6 bg-gray-900 text-white rounded-xl">
@@ -179,15 +179,80 @@ export default function ThrowHeight({
     )
   }
 
-  // ------------------ Prepare / derive series -----------------
-  const { t, dtMean, aTotX, aTotY, aTotZ, aTotMag, aLinX, aLinY, aLinZ, aLinMag, aLinMagRaw, omegaMagAligned, jerkMag } = useMemo(() => {
+  // ================= helpers =================
+  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
+  const movingAvg = (arr: number[], win: number) => {
+    if (win <= 1) return arr.slice()
+    const out: number[] = new Array(arr.length)
+    let sum = 0
+    for (let i = 0; i < arr.length; i++) {
+      sum += arr[i]
+      if (i - win >= 0) sum -= arr[i - win]
+      const count = i < win - 1 ? i + 1 : win
+      out[i] = sum / count
+    }
+    return out
+  }
+  const integrateTrap = (y: number[], t: number[], i0 = 0, i1 = y.length - 1, y0 = 0) => {
+    const out: number[] = new Array(i1 - i0 + 1)
+    out[0] = y0
+    for (let i = i0 + 1; i <= i1; i++) {
+      const dt = Math.max(0, t[i] - t[i - 1])
+      out[i - i0] = out[i - i0 - 1] + 0.5 * (y[i - 1] + y[i]) * dt
+    }
+    return out
+  }
+  const hypot3 = (x:number,y:number,z:number)=> Math.hypot(x,y,z)
+  const median = (a:number[]) => { const b=a.slice().sort((x,y)=>x-y); const m=b.length>>1; return b.length? (b.length%2? b[m] : 0.5*(b[m-1]+b[m])):0 }
+  const MAD = (a:number[]) => { const m=median(a); return 1.4826*median(a.map(x=>Math.abs(x-m))) }
+  const alignSeriesMag = (samples: Sample[], tRef: number[]) => {
+    // nearest-neighbor align of |omega| to tRef
+    if (!samples.length) return new Array(tRef.length).fill(0)
+    const sT = samples.map(s=>s.t)
+    const sMag = samples.map(s=>hypot3(s.x||0,s.y||0,s.z||0))
+    const out:number[] = new Array(tRef.length)
+    let j=0
+    for (let i=0;i<tRef.length;i++){
+      const ti = tRef[i]
+      while(j+1<sT.length && Math.abs(sT[j+1]-ti) <= Math.abs(sT[j]-ti)) j++
+      out[i] = sMag[j] || 0
+    }
+    return out
+  }
+  const morphCloseOpen = (mask: boolean[], gap=2, island=1) => {
+    const n = mask.length
+    const out = mask.slice()
+    // close: fill small gaps of false between trues
+    let i=0
+    while(i<n){
+      while(i<n && !out[i]) i++
+      if(i>=n) break
+      let j=i; while(j<n && out[j]) j++
+      let k=j; while(k<n && !out[k] && (k-j)<gap) k++
+      if(k<n && out[k] && (k-j)<gap) for(let z=j; z<k; z++) out[z]=true
+      i=k
+    }
+    // open: remove tiny true islands
+    i=0
+    while(i<n){
+      while(i<n && out[i]) i++
+      let j=i; while(j<n && !out[j]) j++
+      let s=j; while(s<n && out[s]) s++
+      if((s-j) <= island) for(let z=j; z<s; z++) out[z]=false
+      i=s
+    }
+    return out
+  }
+
+  // ================= derive series =================
+  const { t, dt, aTotX, aTotY, aTotZ, aTotMag, aLinX, aLinY, aLinZ, aLinMag, omegaDeg, omegaRad2 } = useMemo(() => {
     const t = worldAccels.map(p => p.t)
-    const dt = t.map((v,i)=> i ? Math.max(0, v - t[i-1]) : 0)
-    const dtMean = dt.reduce((s,v)=>s+v,0) / Math.max(1, dt.length-1)
+    const dt = t.map((v,i)=> i? Math.max(1e-3, v - t[i-1]) : 1e-3)
 
     const aTotXraw = worldAccels.map(p => p.x)
     const aTotYraw = worldAccels.map(p => p.y)
     const aTotZraw = worldAccels.map(p => p.z)
+
     const aTotX = movingAvg(aTotXraw, smoothN)
     const aTotY = movingAvg(aTotYraw, smoothN)
     const aTotZ = movingAvg(aTotZraw, smoothN)
@@ -204,108 +269,97 @@ export default function ThrowHeight({
       aLinYraw = aTotYraw.map(v => v)
       aLinZraw = aTotZraw.map(v => v + g)
     }
-    const aLinMagRaw = aLinXraw.map((_,i)=>hypot3(aLinXraw[i], aLinYraw[i], aLinZraw[i]))
     const aLinX = movingAvg(aLinXraw, smoothN)
     const aLinY = movingAvg(aLinYraw, smoothN)
     const aLinZ = movingAvg(aLinZraw, smoothN)
     const aLinMag = aLinX.map((_,i)=>hypot3(aLinX[i], aLinY[i], aLinZ[i]))
 
-    // jerk magnitude from raw |a_lin|
-    const jerkMag = aLinMagRaw.map((v,i)=> i ? Math.abs((v - aLinMagRaw[i-1]) / Math.max(1e-6, dt[i])) : 0)
+    const omegaDeg = worldOmegas && worldOmegas.length ? alignSeriesMag(worldOmegas, t) : new Array(t.length).fill(0)
+    const omegaRad2 = omegaDeg.map(wd => { const w = wd * Math.PI/180; return w*w })
 
-    // Align gyro magnitude to accel timestamps
-    const omegaMagAligned = worldOmegas && worldOmegas.length ? alignSeries(worldOmegas, t) : new Array(t.length).fill(0)
-
-    return { t, dtMean, aTotX, aTotY, aTotZ, aTotMag, aLinX, aLinY, aLinZ, aLinMag, aLinMagRaw, omegaMagAligned, jerkMag }
+    return { t, dt, aTotX, aTotY, aTotZ, aTotMag, aLinX, aLinY, aLinZ, aLinMag, omegaDeg, omegaRad2 }
   }, [worldAccels, accelerations, worldOmegas, g, smoothN])
 
-  // ---------------- Adaptive thresholds (from data) -----------
-  const thr = useMemo(() => {
-    // Use lower quartile region to estimate noise
-    const lowALin = aLinMagRaw.slice().sort((a,b)=>a-b).slice(0, Math.max(5, Math.floor(0.3 * aLinMagRaw.length)))
-    const sigALin = Math.max(0.05, MAD(lowALin))
-    const thALin = freeFallALinThresh ?? clamp(3 * sigALin, 0.2, 1.0) // typical 0.3–0.8
-
-    const lowOmega = omegaMagAligned.slice().sort((a,b)=>a-b).slice(0, Math.max(5, Math.floor(0.3 * omegaMagAligned.length)))
-    const sigOmega = Math.max(1, MAD(lowOmega))
-    const thOmega = gyroThresh ?? clamp(3 * sigOmega, 10, 60) // deg/s
-
-    const thTot = totValleyFracG * g // |a_tot| valley threshold
-
-    // jerk threshold for release/catch hints
-    const lowJerk = jerkMag.slice().sort((a,b)=>a-b).slice(0, Math.max(5, Math.floor(0.3 * jerkMag.length)))
-    const thJerk = clamp(6 * MAD(lowJerk), 10, 200) // m/s^3
-
-    return { thALin, thOmega, thTot, thJerk }
-  }, [aLinMagRaw, omegaMagAligned, jerkMag, g, freeFallALinThresh, gyroThresh, totValleyFracG])
-
-  // --------------- Short-throw–friendly free-fall mask --------
-  const detect = useMemo(() => {
+  // ================= spin-robust free-fall detector =================
+  const detectSpin = useMemo(() => {
     const n = t.length
-    if (n < 3) return { ok: false as const, reason: 'Too few samples' }
+    if (n < 8) return { ok: false as const, reason: 'Too few samples' }
 
-    // base masks
-    const maskALin = aLinMagRaw.map(v => v < thr.thALin)
-    const maskOmega = omegaMagAligned.map(v => v < thr.thOmega)
-    const maskTot = aTotMag.map(v => v < thr.thTot) // valley near 0 g in free-fall
+    // Estimate effective radius rEff via robust slope on the lowest-force tail
+    const idx = aTotMag.map((v,i)=>[v,i]).sort((a,b)=>a[0]-b[0]).slice(0, Math.max(5, Math.floor(0.35*n))).map(([,i])=>i)
+    let num=0, den=0
+    for (const i of idx) { num += omegaRad2[i] * aTotMag[i]; den += omegaRad2[i] * omegaRad2[i] }
+    let rEff = den>1e-9 ? num/den : 0
+    rEff = clamp(rEff, 0, 0.08) // clamp to 0–8 cm
 
-    // combine (OR of valley with AND of others) — helps very short throws
-    let free = new Array(n).fill(false).map((_,i)=> (maskALin[i] && maskOmega[i]) || maskTot[i])
+    // centripetal-compensated residual specific force
+    const aFreeMag = aTotMag.map((v,i)=> Math.max(0, v - rEff * omegaRad2[i]))
 
-    // Morphological smoothing in samples (derived from time)
-    const minSamp = Math.max(2, Math.round((minFreeFallMs/1000) / Math.max(1e-3, (t[t.length-1]-t[0])/(n-1))))
-    free = morphCloseOpen(free, /*fill gaps up to*/ 2, /*drop islands shorter than*/ 1)
+    // adaptive threshold on residual (lower tail median + 3*MAD)
+    const tail = aFreeMag.slice().sort((a,b)=>a-b).slice(0, Math.max(5, Math.floor(0.4*n)))
+    const thFree = Math.max(0.15*g, median(tail) + 3*MAD(tail))
 
-    // Choose the run with best score (low mean |a_lin| + |ω|), not just longest
-    let best = { i0: -1, i1: -1, score: Infinity }
-    let i = 0
-    while (i < n) {
-      while (i < n && !free[i]) i++
-      if (i >= n) break
-      const s = i
-      while (i < n && free[i]) i++
-      const e = i - 1
-      if (e - s + 1 >= minSamp) {
-        let sum = 0, cnt = 0
-        for (let k = s; k <= e; k++) { sum += aLinMagRaw[k] + 0.01 * omegaMagAligned[k]; cnt++ }
-        const score = sum / Math.max(1, cnt)
-        if (score < best.score) best = { i0: s, i1: e, score }
-      }
+    let free = aFreeMag.map(v => v < thFree)
+    free = morphCloseOpen(free, 2, 1)
+
+    // choose best run (min mean residual)
+    let best = { i0:-1, i1:-1, score: Infinity }
+    let i=0
+    while(i<n){
+      while(i<n && !free[i]) i++
+      if (i>=n) break
+      const s=i; while(i<n && free[i]) i++; const e=i-1
+      let sum=0,cnt=0
+      for (let k=s;k<=e;k++){ sum+=aFreeMag[k]; cnt++ }
+      const score = sum/Math.max(1,cnt)
+      if (score < best.score) best = { i0:s, i1:e, score }
     }
+    if (best.i0 < 0) return { ok:false as const, reason: 'No convincing free-fall window (spin-compensated)' }
 
-    if (best.i0 < 0) return { ok: false as const, reason: 'No convincing free-fall window found' }
-
-    // Stationary masks (for ZUPT): small |a_lin|
-    const statMask = aLinMagRaw.map(v => v < Math.max(0.25, 0.6 * thr.thALin))
-    const stat = findStationaryWindows(t, best.i0, best.i1, statMask, stationaryWindowMs)
-
-    // Jerk hints for release/catch (optional refinement)
-    const snap = (idx: number, dir: -1 | 1) => {
+    // jerk on residual for edge snapping (~40 ms)
+    const jerk = aFreeMag.map((v,i)=> i? Math.abs((v - aFreeMag[i-1]) / dt[i]) : 0)
+    const snapWin = Math.max(2, Math.round(0.04 / Math.max(1e-3, (t[n-1]-t[0])/(n-1))))
+    const snap = (idx:number, dir:-1|1) => {
       let bestI = idx, bestJ = -Infinity
-      const span = Math.max(2, Math.round(0.04 / Math.max(1e-6, (t[t.length-1]-t[0])/(n-1)))) // ~40 ms
-      for (let k = -span; k <= span; k++) {
-        const j = clamp(idx + dir * k, 1, n - 1)
-        if (jerkMag[j] > bestJ) { bestJ = jerkMag[j]; bestI = j }
+      for (let k=-snapWin; k<=snapWin; k++) {
+        const j = clamp(idx + dir*k, 1, n-1)
+        if (jerk[j] > bestJ) { bestJ = jerk[j]; bestI = j }
       }
-      return (bestJ > thr.thJerk) ? bestI : idx
+      return bestI
     }
     const iRel = snap(best.i0, -1)
     const iCat = snap(best.i1, +1)
 
-    return {
-      ok: true as const,
-      free: { i0: iRel, i1: iCat, t0: t[iRel], t1: t[iCat] },
-      stat,
-      masks: { free, stat: statMask },
-      thr,
-    }
-  }, [t, aLinMagRaw, omegaMagAligned, aTotMag, thr, minFreeFallMs, stationaryWindowMs, jerkMag])
+    return { ok: true as const, free: { i0:iRel, i1:iCat, t0: t[iRel], t1: t[iCat] }, aFreeMag, thFree, rEff }
+  }, [t, dt, aTotMag, omegaRad2, g])
 
-  // --------------- ZUPT-aided integration (vertical) ----------
+  // ================ fallback accel-only detector (simple) ================
+  const detectAccelOnly = useMemo(() => {
+    const n=t.length; const free = new Array(n)
+    for (let i=0;i<n;i++) free[i] = (Math.abs(aLinZ[i]) < freeFallALinThresh)
+    // longest run
+    let best={i0:-1,i1:-1,dur:0}
+    let i=0
+    while(i<n){
+      while(i<n && !free[i]) i++
+      if(i>=n) break
+      const s=i; while(i<n && free[i]) i++; const e=i-1
+      const dur=t[e]-t[s]
+      if (dur > best.dur) best={i0:s,i1:e,dur}
+    }
+    if (best.i0<0 || (best.dur*1000)<minFreeFallMs) return { ok:false as const, reason:'No free-fall (accel-only)'}
+    return { ok:true as const, free: { i0:best.i0, i1:best.i1, t0:t[best.i0], t1:t[best.i1] } }
+  }, [t, aLinZ, freeFallALinThresh, minFreeFallMs])
+
+  // ================ choose detector =================
+  const detect = detectSpin.ok ? detectSpin : (detectAccelOnly.ok ? detectAccelOnly : detectSpin)
+
+  // ================ ZUPT-aided vertical integration =================
   const integ = useMemo(() => {
     if (!detect.ok) return null
-    const { stat } = detect
-    const i0 = stat.i0, i1 = stat.i1
+    // Use stationary windows around free-fall to correct bias by forcing v_end≈0
+    // Here we just use entire recording; you can refine by finding explicit stationary spans.
+    const i0 = 0, i1 = t.length - 1
     const aZ = aTotZ
     const tAll = t
     const vRaw = integrateTrap(aZ, tAll, i0, i1, 0)
@@ -316,31 +370,29 @@ export default function ThrowHeight({
     for (let i = i0; i <= i1; i++) aCorr.push(aZ[i] - bias)
     const vCorr = integrateTrap(aCorr, tAll, 0, aCorr.length - 1, 0)
     const zCorr = integrateTrap(vCorr, tAll.slice(i0, i1 + 1), 0, vCorr.length - 1, 0)
-    // Linear accel (gravity removed) with same bias correction
     const aLinZLocal = aCorr.map(v => v + g)
     return { i0, i1, t0: tAll[i0], t1: tAll[i1], aCorr, vCorr, zCorr, aLinZLocal }
   }, [detect, aTotZ, t, g])
 
-  // ---------------------- Methods 1–3 -------------------------
+  // ===================== Method 1 — TOF + Δh =====================
   const method1 = useMemo(() => {
     if (!detect.ok || !integ) return null
-    const { free } = detect
     const { i0: s0, zCorr } = integ
-    const r0 = free.i0 - s0
-    const r1 = free.i1 - s0
+    const r0 = detect.free.i0 - s0
+    const r1 = detect.free.i1 - s0
     if (r0 < 0 || r1 <= r0 || r1 >= zCorr.length) return null
-    const T = (t[free.i1] - t[free.i0])
+    const T = (t[detect.free.i1] - t[detect.free.i0])
     const dH = zCorr[r1] - zCorr[r0]
     const v0 = 0.5 * g * T + (dH / T)
     const h = Math.max(0, (v0 * v0) / (2 * g))
-    return { T, dH, v0, h, detection: 'adaptive mask (|a_lin| & |ω|, valley |a_tot|)' }
+    return { T, dH, v0, h, detection: 'spin-compensated residual' }
   }, [detect, integ, g, t])
 
+  // ===================== Method 2 — Launch impulse =====================
   const method2 = useMemo(() => {
     if (!detect.ok || !integ) return null
-    const { free } = detect
     const { aLinZLocal, i0: s0, i1: s1 } = integ
-    const iRelLocal = free.i0 - s0
+    const iRelLocal = detect.free.i0 - s0
     if (iRelLocal <= 1) return null
     const Tpre = launchWindowMs / 1000
     const tLocal = t.slice(s0, s1 + 1)
@@ -352,12 +404,12 @@ export default function ThrowHeight({
     return { v0, h, span: tLocal[iRelLocal] - tLocal[iStart], detection: 'pre-release impulse' }
   }, [detect, integ, t, g, launchWindowMs])
 
+  // ===================== Method 3 — ZUPT apex =====================
   const method3 = useMemo(() => {
     if (!detect.ok || !integ) return null
-    const { free } = detect
     const { vCorr, zCorr, i0: s0 } = integ
-    const r0 = free.i0 - s0
-    const r1 = free.i1 - s0
+    const r0 = detect.free.i0 - s0
+    const r1 = detect.free.i1 - s0
     if (r0 < 1 || r1 <= r0) return null
     let iA = r0
     for (let i = r0 + 1; i <= r1; i++) {
@@ -369,85 +421,47 @@ export default function ThrowHeight({
     return { h, apexIndex: iA, dH, detection: 'ZUPT trajectory' }
   }, [detect, integ])
 
-  // ---------------------- Method 4 ----------------------------
-  // Falling-phase (descending) duration from time-of-flight T and initial velocity v0.
-  // t_up = v0/g,  t_fall = max(0, T - t_up). Optionally cross-check with Δh when available:
-  // t_fall_alt = sqrt( 2 * (h_max - Δh) / g ),  h_max = v0^2/(2g).
+  // ===================== Method 4 — falling-phase duration =====================
   const method4 = useMemo(() => {
     if (!detect.ok) return null
     const T = detect.free.t1 - detect.free.t0
-
-    // Prefer v0 from Method 2 (impulse), else Method 1 (TOF+Δh), else estimate via LS fit on v(t)
     let v0: number | null = null
-    let src: string = ''
-    if (method2 && Number.isFinite(method2.v0)) { v0 = method2.v0; src = 'impulse' }
-    else if (method1 && Number.isFinite(method1.v0)) { v0 = method1.v0; src = 'tof+Δh' }
-    else if (integ) {
-      const s0 = integ.i0
-      const r0 = detect.free.i0 - s0
-      const r1 = detect.free.i1 - s0
-      if (r0 >= 0 && r1 > r0) {
-        const tLocal = t.slice(s0, s1Clamp(integ.i1, t.length-1) + 1)
-        const vLocal = integ.vCorr
-        const tFree = tLocal.slice(r0, r1 + 1)
-        const vFree = vLocal.slice(r0, r1 + 1)
-        const n = tFree.length
-        if (n >= 3) {
-          let Sx=0,Sy=0,Sxx=0,Sxy=0
-          for (let i=0;i<n;i++){ const x=tFree[i]; const y=vFree[i]; Sx+=x; Sy+=y; Sxx+=x*x; Sxy+=x*y }
-          const c1 = (n*Sxy - Sx*Sy)/(n*Sxx - Sx*Sx)
-          const c0 = (Sy - c1*Sx)/n
-          const tRelease = t[detect.free.i0]
-          v0 = c0 + g*tRelease
-          src = 'fit(v)'
-        }
-      }
-    }
+    let src = ''
+    if (method2 && Number.isFinite(method2.v0)) { v0 = method2.v0; src='impulse' }
+    else if (method1 && Number.isFinite(method1.v0)) { v0 = method1.v0; src='tof+Δh' }
     if (v0 == null) return null
-
     const tUp = Math.max(0, v0 / g)
     let tFall = Math.max(0, T - tUp)
-
-    // alt using Δh if available
     let tFallAlt: number | null = null
     if (method1 && Number.isFinite(method1.dH)) {
-      const hMax = (v0*v0) / (2*g)
+      const hMax = (v0*v0)/(2*g)
       const D = Math.max(0, hMax - (method1 as any).dH)
       tFallAlt = Math.sqrt(2*D/g)
       if (Number.isFinite(tFallAlt)) {
-        // fuse conservatively: prefer the smaller (avoids catch contamination), or average if close
         const rel = Math.abs(tFallAlt - tFall)/Math.max(1e-6, tFall)
         tFall = rel > 0.25 ? Math.min(tFall, tFallAlt) : 0.5*(tFall + tFallAlt)
       }
     }
-
-    const tRelease = t[detect.free.i0]
-    const tApex = tRelease + tUp
-    // find first index ≥ apex within free window
+    // find index of start of fall (>= apex)
+    const tApex = detect.free.t0 + tUp
     let iFall0 = detect.free.i0
-    for (let i = detect.free.i0; i <= detect.free.i1; i++) { if (t[i] >= tApex) { iFall0 = i; break } }
-
-    // Calculate height using falling-phase duration: h = 0.5 * g * t_fall^2
+    for (let i=detect.free.i0; i<=detect.free.i1; i++){ if (t[i] >= tApex) { iFall0 = i; break } }
+    // calculate height from falling duration: h = 0.5 * g * t_fall^2
     const h = Math.max(0, 0.5 * g * tFall * tFall)
-
     return { T, v0, src, tUp, tFall, tFallAlt, tApex, iFall0, iFall1: detect.free.i1, h }
-  }, [detect, method1, method2, integ, t, g])
+  }, [detect, method1, method2, t, g])
 
-  function s1Clamp(i:number, max:number){ return i>max?max:i }
-
-  // ------------------------ Diagnostics ----------------------
+  // ===================== Diagnostics for UI =====================
   const diag = useMemo(() => {
-    if (!detect.ok) return { ok: false as const, reason: detect.reason }
-    const { free, stat } = detect
-    const T = free.t1 - free.t0
-    const S = stat.t1 - stat.t0
-    return { ok: true as const, T, S, free, stat, thr: detect.thr, dtMean }
-  }, [detect, dtMean])
+    if (!detect.ok) return { ok:false as const, reason: (detect as any).reason }
+    const T = detect.free.t1 - detect.free.t0
+    return { ok:true as const, T, free: detect.free, rEff: (detect as any).rEff ?? null, thFree: (detect as any).thFree ?? null }
+  }, [detect])
 
-  // -------------------------- Plots --------------------------
-  function Plot({ x, y, title, xlab, ylab, highlight, threshold, showDebug, metrics, highlight2 }: {
-    x: number[]; y: number[]; title: string; xlab: string; ylab: string;
-    highlight?: { i0: number; i1: number }; threshold?: number; showDebug?: boolean; metrics?: string[]; highlight2?: { i0: number; i1: number };
+  // ===================== simple plots =====================
+  function Plot({ x, y, title, xlab, ylab, highlight, threshold, metrics, highlight2 }: { 
+    x: number[]; y: number[]; title: string; xlab: string; ylab: string; 
+    highlight?: { i0: number; i1: number }; threshold?: number; metrics?: string[]; highlight2?: { i0:number; i1:number }
   }) {
     const width = 360, height = 200
     const m = { t: 20, r: 16, b: 36, l: 40 }
@@ -459,7 +473,6 @@ export default function ThrowHeight({
     const sx = (v: number) => m.l + ((v - minX) / dx) * W
     const sy = (v: number) => m.t + (1 - (v - minY) / dy) * H
     const pts = y.map((v, i) => `${sx(x[i]).toFixed(1)},${sy(v).toFixed(1)}`).join(' ')
-
     return (
       <svg width={width} height={height} className="bg-white rounded-md shadow border">
         <text x={width/2} y={14} textAnchor="middle" fontSize={12}>{title}</text>
@@ -472,10 +485,10 @@ export default function ThrowHeight({
         {highlight2 && (
           <rect x={sx(x[highlight2.i0])} y={m.t} width={sx(x[highlight2.i1]) - sx(x[highlight2.i0])} height={H} fill="#f39c1244"/>
         )}
-        {threshold !== undefined && threshold>=minY && threshold<=maxY && (
+        {threshold!==undefined && threshold>=minY && threshold<=maxY && (
           <>
             <line x1={m.l} y1={sy(threshold)} x2={m.l+W} y2={sy(threshold)} stroke="#ff0000" strokeWidth={1} strokeDasharray="4,2"/>
-            <text x={m.l+W-5} y={sy(threshold)-3} fontSize={10} fill="#ff0000" textAnchor="end">+{threshold.toFixed(2)}</text>
+            <text x={m.l+W-5} y={sy(threshold)-3} fontSize={10} fill="#ff0000" textAnchor="end">{threshold.toFixed(2)}</text>
           </>
         )}
         {metrics && (
@@ -492,13 +505,13 @@ export default function ThrowHeight({
     )
   }
 
-  // --------------------------- UI ----------------------------
+  // ===================== UI =====================
   return (
     <div className="p-6 bg-gray-900 text-white rounded-2xl space-y-4">
-      <h2 className="text-2xl font-bold">Throw height (offline analysis — short-throw–friendly)</h2>
+      <h2 className="text-2xl font-bold">Throw height (spin‑robust offline analysis)</h2>
 
       {!diag.ok && (
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">{diag.reason}</div>
+        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">{(diag as any).reason || 'Detection failed'}</div>
       )}
 
       {diag.ok && (
@@ -545,10 +558,10 @@ export default function ThrowHeight({
                 <li><span className="text-gray-400">t↑ = v₀/g:</span> {method4.tUp.toFixed(3)} s</li>
                 <li><span className="text-gray-400">T (free-fall):</span> {method4.T.toFixed(3)} s</li>
                 <li><span className="text-gray-400">t_fall (descend):</span> {method4.tFall.toFixed(3)} s</li>
+                {method4.tFallAlt!==null && <li><span className="text-gray-400">t_fall (Δh check):</span> {(method4.tFallAlt as number).toFixed(3)} s</li>}
                 <li className="text-lg"><span className="text-gray-400">Height h:</span> <b>{method4.h.toFixed(3)} m</b></li>
-                {method4.tFallAlt!==null && <li><span className="text-gray-400">t_fall (Δh cross-check):</span> {(method4.tFallAlt as number).toFixed(3)} s</li>}
               </ul>
-            ) : <p className="text-sm text-gray-300">Need a v₀ estimate (Method 1 or 2).</p>}
+            ) : <p className="text-sm text-gray-300">Need a v₀ estimate.</p>}
           </div>
         </div>
       )}
@@ -557,60 +570,46 @@ export default function ThrowHeight({
         <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
           <h3 className="font-semibold mb-2">Diagnostics</h3>
           <ul className="text-sm text-gray-300 grid md:grid-cols-2 gap-y-1">
-            <li>Detected free-fall: {diag.free.t0.toFixed(3)}s → {diag.free.t1.toFixed(3)}s ({(diag.T).toFixed(3)} s)</li>
-            <li>Stationary span used: {diag.stat.t0.toFixed(3)}s → {diag.stat.t1.toFixed(3)}s</li>
-            <li>dt_mean: {diag.dtMean.toFixed(3)} s | |a_lin| thr: {diag.thr.thALin.toFixed(2)} m/s² | |ω| thr: {diag.thr.thOmega.toFixed(1)} deg/s</li>
-            <li>|a_tot| valley thr: {(diag.thr.thTot).toFixed(2)} m/s² | jerk thr: {diag.thr.thJerk.toFixed(1)} m/s³</li>
+            <li>Detected free-fall: {diag.free.t0.toFixed(3)}s → {diag.free.t1.toFixed(3)}s ({diag.T.toFixed(3)} s)</li>
+            {diag.rEff!==null && <li>Spin compensation: r_eff ≈ {(diag.rEff*100).toFixed(1)} cm</li>}
+            {diag.thFree!==null && <li>Residual threshold: {(diag.thFree as number).toFixed(2)} m/s²</li>}
           </ul>
         </div>
       )}
 
       <div className="grid xl:grid-cols-2 gap-4">
-        {worldOmegas && worldOmegas.length > 0 && (
-          <Plot 
-            x={t} 
-            y={omegaMagAligned} 
-            title="Gyroscope magnitude (aligned)" 
-            xlab="time (s)" 
-            ylab="deg/s" 
-            highlight={detect.ok ? detect.free : undefined} 
-            threshold={thr.thOmega} 
-            metrics={["Mask: |ω| < adaptive threshold"]}
-            highlight2={method4 ? { i0: method4.iFall0, i1: method4.iFall1 } : undefined}
-          />
-        )}
-        <Plot 
-          x={t} 
-          y={aLinMagRaw} 
-          title="|a_lin^w|(raw)" 
-          xlab="time (s)" 
-          ylab="m/s²" 
-          highlight={detect.ok ? detect.free : undefined} 
-          threshold={thr.thALin}
-          metrics={["Mask: |a_lin| < adaptive threshold"]}
-          highlight2={method4 ? { i0: method4.iFall0, i1: method4.iFall1 } : undefined}
-        />
         <Plot 
           x={t} 
           y={aTotMag} 
-          title="|a_total^w| (valley near 0 in free-fall)" 
+          title="|a_total^w|(t)" 
           xlab="time (s)" 
           ylab="m/s²" 
-          highlight={detect.ok ? detect.free : undefined} 
-          threshold={thr.thTot}
-          metrics={[`Thr = ${totValleyFracG}·g`]}
-          highlight2={method4 ? { i0: method4.iFall0, i1: method4.iFall1 } : undefined}
+          highlight={detect.ok ? detect.free : undefined}
+          metrics={["Includes gravity & spin (centripetal)"]}
         />
-        <Plot 
-          x={t} 
-          y={jerkMag} 
-          title="jerk = d/dt |a_lin| (release/catch hints)" 
-          xlab="time (s)" 
-          ylab="m/s³" 
-          highlight={detect.ok ? detect.free : undefined} 
-          threshold={thr.thJerk}
-          highlight2={method4 ? { i0: method4.iFall0, i1: method4.iFall1 } : undefined}
-        />
+        {worldOmegas && worldOmegas.length > 0 && (
+          <Plot 
+            x={t} 
+            y={omegaDeg} 
+            title="|ω|(t) (deg/s) aligned" 
+            xlab="time (s)" 
+            ylab="deg/s" 
+            highlight={detect.ok ? detect.free : undefined}
+          />
+        )}
+        {detectSpin.ok && (
+          <Plot 
+            x={t} 
+            y={(detectSpin as any).aFreeMag} 
+            title="Residual |a| after spin compensation" 
+            xlab="time (s)" 
+            ylab="m/s²" 
+            highlight={detect.free}
+            threshold={(detectSpin as any).thFree}
+            metrics={[`r_eff≈${((detectSpin as any).rEff*100).toFixed(1)} cm`, `thr≈${((detectSpin as any).thFree).toFixed(2)} m/s²`]}
+            highlight2={method4 ? { i0: method4.iFall0, i1: method4.iFall1 } : undefined}
+          />
+        )}
         {integ && (
           <Plot x={t.slice(integ.i0, integ.i1 + 1)} y={integ.vCorr} title="v_z(t) after bias removal" xlab="time (s) in window" ylab="m/s" />
         )}
@@ -620,7 +619,7 @@ export default function ThrowHeight({
       </div>
 
       <div className="text-xs text-gray-400">
-        Tips: If signs are inverted, flip gravity direction or invert z before analysis. You can also override thresholds via props, but the adaptive defaults are tuned to handle very short throws.
+        Notes: world-frame rotation does not remove spin; centripetal specific force grows like |ω|²·r. We estimate an effective radius per throw and detect free-fall on the spin‑compensated residual. Use the residual only for detection; keep raw vectors for integration.
       </div>
     </div>
   )
