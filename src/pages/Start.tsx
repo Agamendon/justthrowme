@@ -4,19 +4,23 @@ interface StartProps {
 
 export function Start({ onStart }: StartProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full p-8 text-white">
-      <h1 className="text-6xl font-bold mb-8 text-white">Let's Go!</h1>
-      <div className="text-center space-y-6">
-        <p className="text-2xl text-white">
-          You're all set and ready to begin.
-        </p>
-        <div className="flex flex-col items-center space-y-4">
-          <button
-            onClick={onStart}
-            className="px-12 py-6 bg-green-500 text-white text-2xl font-bold rounded-full hover:bg-green-600 transition-colors animate-pulse"
-          >
-            START NOW
-          </button>
+    <div className="flex flex-col bg-slate-800 text-white" style={{ height: '100dvh' }}>
+      <div className="flex-1 flex items-center justify-center px-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div className="w-full max-w-md bg-gray-800 p-5">
+          <h1 className="text-6xl font-bold mb-8 text-white text-center alfa-slab-one-regular">LET'S GO!</h1>
+          <div className="text-center space-y-6">
+            <p className="text-2xl text-white alfa-slab-one-regular">
+              You're all set and ready to begin.
+            </p>
+            <div className="flex flex-col items-center">
+              <button
+                onClick={onStart}
+                className="w-full py-6 bg-green-600 hover:bg-green-700 text-white text-2xl font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-green-400 border-l-green-400 border-b-green-900 border-r-green-900"
+              >
+                START NOW
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
