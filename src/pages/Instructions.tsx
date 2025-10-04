@@ -12,9 +12,9 @@ export function Instructions({ onNext, onSkip }: InstructionsProps) {
           Welcome to JustThrowMe! Here's how to play:
         </p>
         <ul className="text-left space-y-2 text-lg">
-          <li>" Step 1: Get ready for the experience</li>
-          <li>" Step 2: Follow the on-screen prompts</li>
-          <li>" Step 3: Have fun and stay safe</li>
+          <li>Step 1: Get ready for the experience</li>
+          <li>Step 2: Follow the on-screen prompts</li>
+          <li>Step 3: Have fun and stay safe</li>
         </ul>
       </div>
       <div className="flex gap-4">

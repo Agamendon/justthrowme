@@ -16,10 +16,10 @@ export function Disclaimer({ onNext, onSkip }: DisclaimerProps) {
             By proceeding, you acknowledge that:
           </p>
           <ul className="space-y-2 ml-4">
-            <li>" This is for entertainment purposes only</li>
-            <li>" You participate at your own risk</li>
-            <li>" You are responsible for your own safety</li>
-            <li>" You agree to all terms and conditions</li>
+            <li>This is for entertainment purposes only</li>
+            <li>You participate at your own risk</li>
+            <li>You are responsible for your own safety</li>
+            <li>You agree to all terms and conditions</li>
           </ul>
         </div>
       </div>

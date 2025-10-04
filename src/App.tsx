@@ -1,19 +1,63 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Instructions } from './pages/Instructions'
 import { Disclaimer } from './pages/Disclaimer'
 import { Start } from './pages/Start'
+import { Play } from './pages/Play'
+import { PostThrow } from './pages/PostThrow'
+import { Leaderboard } from './pages/Leaderboard'
+import { useEnsureSignedIn } from './useSupabaseAuth'
+import { generateRandomUsername } from './utils/usernameGenerator'
+import { updateUsername, getUsername } from './supabaseClient'
 
-type PageState = 'home' | 'instructions' | 'disclaimer' | 'start'
+type PageState = 'home' | 'instructions' | 'disclaimer' | 'start' | 'play' | 'postthrow' | 'leaderboard'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageState>('home')
+  const [throwData, setThrowData] = useState<{
+    height: number,
+    flips: number,
+    duration: number,
+    coords: [number, number, number][]
+  } | null>(null)
+  const [username, setUsername] = useState<string>('')
 
-  const handleStart = () => {
+  // supabase auth
+  const { session, loading } = useEnsureSignedIn()
+
+  // Fetch existing username or generate new one on mount
+  useEffect(() => {
+    const initUsername = async () => {
+      // First, try to fetch existing username from Supabase
+      const { username: existingUsername } = await getUsername();
+      
+      if (existingUsername) {
+        // User already has a username, use it
+        console.log('Using existing username:', existingUsername);
+        setUsername(existingUsername);
+      } else {
+        // No existing username, generate a new one
+        const newUsername = generateRandomUsername();
+        console.log('Generated new username:', newUsername);
+        setUsername(newUsername);
+        await updateUsername(newUsername);
+      }
+    };
+    
+    if (!loading && session && !username) {
+      initUsername();
+    }
+  }, [loading, session, username])
+
+  const handleGo = () => {
     setCurrentPage('instructions')
   }
 
   const handleClose = () => {
     setCurrentPage('home')
+  }
+
+  const handleStart = () => {
+    setCurrentPage('play')
   }
 
   const handleNext = () => {
@@ -28,23 +72,71 @@ function App() {
     setCurrentPage('start')
   }
 
-  if (currentPage === 'home') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
-        <h1 className="text-6xl font-bold mb-12">JustThrowMe</h1>
-        <button
-          onClick={handleStart}
-          className="relative w-48 h-48 bg-red-600 rounded-full hover:bg-red-700 transition-all transform hover:scale-105 shadow-2xl"
-        >
-          <span className="text-4xl font-bold text-white">GO</span>
-        </button>
-        <p className="mt-8 text-gray-400">Click GO to begin</p>
-      </div>
-    )
+  const handleFinish = async (height: number, flips: number, duration: number, coords: [number, number, number][]) => {
+    setThrowData({ height, flips, duration, coords })
+    
+    // Save attempt to database immediately when throw finishes
+    console.log('Saving attempt to database:', { height, flips })
+    const { insertAttempt } = await import('./supabaseClient')
+    const { success, error } = await insertAttempt(height, flips)
+    
+    if (success) {
+      console.log('Attempt saved successfully to database')
+    } else {
+      console.error('Failed to save attempt:', error)
+    }
+    
+    setCurrentPage('postthrow')
+  }
+
+  const handleViewLeaderboard = () => {
+    setCurrentPage('leaderboard')
+  }
+
+  const handleBackFromLeaderboard = () => {
+    setCurrentPage('postthrow')
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black">
+    <div className="bg-slate-800">
+      {/* Header */}
+      {/* <header className="">
+        <div className="container mx-auto px-4 py-4">
+          <h1 className="rubik-spray-paint-regular text-3xl text-white text-center">
+            JustThrowMe<sub> (pls)</sub>
+          </h1>
+        </div>
+      </header> */}
+      
+      {currentPage === 'home' && (
+        <div className="flex flex-col items-center justify-center min-h-screen text-white relative">
+          {/* Session info/debug widget */}
+          <div className="absolute top-4 right-4 text-xs text-gray-300 bg-white/5 border border-white/10 rounded px-3 py-2 max-w-[50vw] overflow-auto">
+            {loading ? (
+              <span>Loading session…</span>
+            ) : session ? (
+              <div>
+                <div className="mb-1">Signed in as:</div>
+                <div className="font-mono text-[10px] break-all mb-2">{session.user.id}</div>
+                {username && (
+                  <div>
+                    <div className="mb-1">Username:</div>
+                    <div className="font-mono text-[10px] break-all">{username}</div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span>No session</span>
+            )}
+          </div>
+          <button
+            onClick={handleGo}
+            className="relative w-48 h-48 bg-red-600 rounded-full hover:bg-red-700 transition-all transform hover:scale-105 shadow-2xl"
+          >
+            <span className="text-4xl font-bold text-white">GO</span>
+          </button>
+        </div>
+      )}
       {currentPage === 'instructions' && (
         <Instructions onNext={handleNext} onSkip={handleSkip} />
       )}
@@ -52,7 +144,26 @@ function App() {
         <Disclaimer onNext={handleNext} onSkip={handleSkip} />
       )}
       {currentPage === 'start' && (
-        <Start onClose={handleClose} />
+        <Start onStart={handleStart}/>
+      )}
+      {currentPage == 'play' && (
+        <Play onClose={handleClose} onFinish={handleFinish}/>
+      )}
+      {currentPage === 'postthrow' && throwData && (
+        <PostThrow 
+          height={throwData.height}
+          flips={throwData.flips}
+          duration={throwData.duration}
+          coords={throwData.coords}
+          onViewLeaderboard={handleViewLeaderboard}
+        />
+      )}
+      {currentPage === 'leaderboard' && (
+        <Leaderboard 
+          username={username}
+          onUsernameChange={setUsername}
+          onBack={handleBackFromLeaderboard}
+        />
       )}
     </div>
   )
