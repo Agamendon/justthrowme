@@ -4,6 +4,7 @@ import { Instructions } from "./pages/Instructions";
 import { Disclaimer } from "./pages/Disclaimer";
 import { Start } from "./pages/Start";
 import { Main } from "./pages/Main";
+import { ThrowPage } from "./pages/ThrowPage";
 
 function App() {
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ function App() {
       />
       <Route path="/onboarding/start" element={<Start />} />
       <Route path="/go" element={<Main />} />
+      <Route path="/throw" element={<ThrowPage />} />
     </Routes>
   );
 }
