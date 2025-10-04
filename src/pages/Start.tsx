@@ -16,12 +16,6 @@ export function Start({ onClose }: StartProps) {
           >
             START NOW
           </button>
-          <button
-            onClick={onClose}
-            className="px-6 py-3 border-2 border-white rounded-lg hover:bg-white hover:text-black transition-colors"
-          >
-            Exit Fullscreen
-          </button>
         </div>
       </div>
     </div>
