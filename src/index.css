@@ -1,6 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=IBM+Plex+Sans+Condensed:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Rubik+Spray+Paint&display=swap');
 @import "tailwindcss";
 
+:root {
+  --color-primary: #DC2626;     /* Red - Main brand color */
+  --color-secondary: #1F2937;   /* Dark gray - Background accents */
+  --color-tertiary: #F59E0B;    /* Amber - Highlights and accents */
+  
+  --color-primary-dark: #991B1B;
+  --color-primary-light: #EF4444;
+  --color-secondary-dark: #111827;
+  --color-secondary-light: #374151;
+  --color-tertiary-dark: #D97706;
+  --color-tertiary-light: #FCD34D;
+}
+
 html, body {
   overflow: hidden;
   height: 100%;

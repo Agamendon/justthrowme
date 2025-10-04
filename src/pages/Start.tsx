@@ -5,9 +5,9 @@ interface StartProps {
 export function Start({ onStart }: StartProps) {
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 text-white">
-      <h1 className="text-6xl font-bold mb-8">Let's Go!</h1>
+      <h1 className="text-6xl font-bold mb-8 text-white">Let's Go!</h1>
       <div className="text-center space-y-6">
-        <p className="text-2xl">
+        <p className="text-2xl text-white">
           You're all set and ready to begin.
         </p>
         <div className="flex flex-col items-center space-y-4">
