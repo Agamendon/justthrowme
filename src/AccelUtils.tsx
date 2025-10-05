@@ -387,8 +387,8 @@ export function computeHeightMethod1(
 
   const g = input.g ?? 9.80665
   const smoothN = input.smoothN ?? 5
-  const stationaryALinThresh = input.stationaryALinThresh ?? 0.5
-  const stationaryWindowMs = input.stationaryWindowMs ?? 250
+  // const stationaryALinThresh = input.stationaryALinThresh ?? 0.5
+  // const stationaryWindowMs = input.stationaryWindowMs ?? 250
 
   const A = input.worldAccels
   if (!A || A.length < 8) return { ok: false, reason: 'Not enough acceleration samples' }
@@ -401,9 +401,9 @@ export function computeHeightMethod1(
   // 2) ZUPT-like bias removal using stationary windows around throw
   const aTotZ = movingAvg(A.map(s => s.z), smoothN) // includes gravity
   // linear accel in world z for stationary mask
-  const aLinZ = aTotZ.map(v => v + g)
+  // const aLinZ = aTotZ.map(v => v + g)
 
-  const stat = findStationaryWindows(t, det.i0, det.i1, aLinZ.map(v => Math.abs(v) < stationaryALinThresh), stationaryWindowMs)
+  // const stat = findStationaryWindows(t, det.i0, det.i1, aLinZ.map(v => Math.abs(v) < stationaryALinThresh), stationaryWindowMs)
   const s0 = 0, s1 = t.length - 1 // (safe default: whole span)
   // integrate on whole span, then remove constant accel bias so v_end≈0
   const vRaw = integrateTrap(aTotZ, t, s0, s1, 0)
