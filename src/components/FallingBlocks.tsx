@@ -57,8 +57,8 @@ export function FallingBlocks() {
     // Random helper function for position variation
     const randomOffset = (base: number, range: number) => base + (Math.random() - 0.5) * range
 
-    // JUST block (positioned to fall from left-center area with randomization)
-    const justBlock = Bodies.rectangle(
+    // THE block (positioned to fall from left-center area with randomization)
+    const theBlock = Bodies.rectangle(
       randomOffset(width * 0.3, 100),
       randomOffset(-100, 50),
       blockWidth,
@@ -72,12 +72,12 @@ export function FallingBlocks() {
           strokeStyle: 'transparent',
           lineWidth: 0
         },
-        label: 'JUST'
+        label: 'THE'
       }
     )
 
-    // THROW block (positioned to fall from center with randomization)
-    const throwBlock = Bodies.rectangle(
+    // FLIP block (positioned to fall from center with randomization)
+    const flipBlock = Bodies.rectangle(
       randomOffset(width * 0.5, 100),
       randomOffset(-250, 50),
       blockWidth,
@@ -91,12 +91,12 @@ export function FallingBlocks() {
           strokeStyle: 'transparent',
           lineWidth: 0
         },
-        label: 'THROW'
+        label: 'FLIP'
       }
     )
 
-    // ME block (positioned to fall from right-center area with randomization)
-    const meBlock = Bodies.rectangle(
+    // OFF block (positioned to fall from right-center area with randomization)
+    const offBlock = Bodies.rectangle(
       randomOffset(width * 0.7, 100),
       randomOffset(-150, 50),
       blockWidth,
@@ -110,14 +110,14 @@ export function FallingBlocks() {
           strokeStyle: 'transparent',
           lineWidth: 0
         },
-        label: 'ME'
+        label: 'OFF'
       }
     )
 
     // Add randomized initial angular velocity for more dynamic motion
-    Body.setAngularVelocity(justBlock, (Math.random() - 0.5) * 0.1)
-    Body.setAngularVelocity(throwBlock, (Math.random() - 0.5) * 0.1)
-    Body.setAngularVelocity(meBlock, (Math.random() - 0.5) * 0.1)
+    Body.setAngularVelocity(theBlock, (Math.random() - 0.5) * 0.1)
+    Body.setAngularVelocity(flipBlock, (Math.random() - 0.5) * 0.1)
+    Body.setAngularVelocity(offBlock, (Math.random() - 0.5) * 0.1)
 
     // Create ground (positioned higher, above the GO button)
     const ground = Bodies.rectangle(
@@ -168,7 +168,7 @@ export function FallingBlocks() {
     )
 
     // Add all bodies to the world
-    World.add(engine.world, [justBlock, throwBlock, meBlock, ground, leftWall, rightWall])
+    World.add(engine.world, [theBlock, flipBlock, offBlock, ground, leftWall, rightWall])
 
     // Run the engine
     const runner = Runner.create()
@@ -183,7 +183,7 @@ export function FallingBlocks() {
       const ctx = render.context
       
       bodies.forEach((body) => {
-        if (body.label === 'JUST' || body.label === 'THROW' || body.label === 'ME') {
+        if (body.label === 'THE' || body.label === 'FLIP' || body.label === 'OFF') {
           ctx.save()
           ctx.translate(body.position.x, body.position.y)
           ctx.rotate(body.angle)
@@ -192,7 +192,7 @@ export function FallingBlocks() {
           const halfHeight = blockHeight / 2
           
           // Draw outset-style borders
-          if (body.label === 'JUST') {
+          if (body.label === 'THE') {
             // Light borders (top and left)
             ctx.strokeStyle = '#f87171' // red-400
             ctx.lineWidth = 4
@@ -216,7 +216,7 @@ export function FallingBlocks() {
             ctx.moveTo(halfWidth, -halfHeight)
             ctx.lineTo(halfWidth, halfHeight)
             ctx.stroke()
-          } else if (body.label === 'THROW') {
+          } else if (body.label === 'FLIP') {
             // Light borders (top and left)
             ctx.strokeStyle = '#60a5fa' // blue-400
             ctx.lineWidth = 4
@@ -240,7 +240,7 @@ export function FallingBlocks() {
             ctx.moveTo(halfWidth, -halfHeight)
             ctx.lineTo(halfWidth, halfHeight)
             ctx.stroke()
-          } else if (body.label === 'ME') {
+          } else if (body.label === 'OFF') {
             // Light borders (top and left)
             ctx.strokeStyle = '#4ade80' // green-400
             ctx.lineWidth = 4

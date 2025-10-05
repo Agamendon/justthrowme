@@ -1,6 +1,15 @@
 import { useMemo } from 'react'
 
-// =============================================================
+/// Unused helper function
+// const integrateTrap = (y: number[], t: number[], i0 = 0, i1 = y.length - 1, y0 = 0) => {
+//   const out: number[] = new Array(i1 - i0 + 1)
+//   out[0] = y0
+//   for (let i = i0 + 1; i <= i1; i++) {
+//     const dt = t[i] - t[i - 1]
+//     out[i - i0] = out[i - i0 - 1] + 0.5 * (y[i - 1] + y[i]) * dt
+//   }
+//   return out
+// }======================================================
 // ThrowHeight.tsx — offline height estimation of a tossed phone
 // (short-throw–friendly)
 // -------------------------------------------------------------
@@ -42,14 +51,14 @@ const integrateTrap = (y: number[], t: number[], i0 = 0, i1 = y.length - 1, y0 =
   return out
 }
 
-// Robust scale estimate
-const MAD = (arr: number[]) => {
-  if (!arr.length) return 0
-  const med = quantile(arr, 0.5)
-  const dev = arr.map(v => Math.abs(v - med))
-  const mad = quantile(dev, 0.5)
-  return 1.4826 * mad // Gaussian consistency
-}
+// Unused helper function
+// const MAD = (arr: number[]) => {
+//   if (!arr.length) return 0
+//   const med = quantile(arr, 0.5)
+//   const dev = arr.map(v => Math.abs(v - med))
+//   const mad = quantile(dev, 0.5)
+//   return 1.4826 * mad // Gaussian consistency
+// }
 
 const quantile = (arr: number[], q: number) => {
   if (!arr.length) return 0
@@ -62,7 +71,7 @@ const quantile = (arr: number[], q: number) => {
 }
 
 // Fill tiny 0-gaps inside a 1-mask and remove tiny 1-islands (in samples)
-function morphCloseOpen(mask: boolean[], closeGapsN: number, openIslandsN: number) {
+function _morphCloseOpen(mask: boolean[], closeGapsN: number, openIslandsN: number) {
   const n = mask.length
   const out = mask.slice()
   // close (fill zeros between ones if gap ≤ N)
@@ -97,22 +106,27 @@ function morphCloseOpen(mask: boolean[], closeGapsN: number, openIslandsN: numbe
 }
 
 // Align a sample list (by times) to a target time vector using nearest neighbor
-const alignSeries = (src: Sample[], tTarget: number[]) => {
-  if (!src || !src.length) return new Array(tTarget.length).fill(0)
-  const ts = src.map(s => s.t)
-  let j = 0
-  const out: number[] = new Array(tTarget.length)
-  for (let i = 0; i < tTarget.length; i++) {
-    const tt = tTarget[i]
-    while (j + 1 < ts.length && Math.abs(ts[j + 1] - tt) < Math.abs(ts[j] - tt)) j++
-    const s = src[j]
-    out[i] = s ? s.x !== undefined && s.y !== undefined && s.z !== undefined ? hypot3(s.x, s.y, s.z) : 0 : 0
-  }
-  return out
-}
+// Unused helper function
+// const alignSeries = (src: Sample[], tTarget: number[]) => {
+//   if (!src.length || !tTarget.length) return []
+//   const out: Sample[] = new Array(tTarget.length)
+//   let j = 0
+//   for (let i = 0; i < tTarget.length; i++) {
+//     const tNow = tTarget[i]
+//     while (j < src.length - 1 && src[j + 1].t <= tNow) j++
+//     if (j >= src.length - 1) {
+//       out[i] = src[src.length - 1]
+//     } else {
+//       const a = src[j], b = src[j + 1]
+//       const alpha = (tNow - a.t) / (b.t - a.t)
+//       out[i] = { t: tNow, x: a.x + alpha * (b.x - a.x), y: a.y + alpha * (b.y - a.y), z: a.z + alpha * (b.z - a.z) }
+//     }
+//   }
+//   return out
+// }
 
 // Helper for finding stationary windows around a free-fall span
-const findStationaryWindows = (
+const _findStationaryWindows = (
   t: number[], freeStart: number, freeEnd: number, statMask: boolean[], stationaryWindowMs: number
 ) => {
   const needStatS = stationaryWindowMs / 1000
@@ -166,7 +180,7 @@ export default function ThrowHeight({
   // thresholds (may be auto-tuned)
   freeFallALinThresh = 0.6,   // fallback accel-only detector
   minFreeFallMs = 80,         // allow short throws
-  stationaryWindowMs = 250,
+  // stationaryWindowMs = 250,  // unused parameter
   launchWindowMs = 200,
 }: ThrowHeightProps) {
   // ---- early outs ----
@@ -245,7 +259,7 @@ export default function ThrowHeight({
   }
 
   // ================= derive series =================
-  const { t, dt, aTotX, aTotY, aTotZ, aTotMag, aLinX, aLinY, aLinZ, aLinMag, omegaDeg, omegaRad2 } = useMemo(() => {
+  const { t, dt, aTotZ, aTotMag, aLinZ, omegaDeg, omegaRad2 } = useMemo(() => {
     const t = worldAccels.map(p => p.t)
     const dt = t.map((v,i)=> i? Math.max(1e-3, v - t[i-1]) : 1e-3)
 
