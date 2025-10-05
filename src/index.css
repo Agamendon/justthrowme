@@ -121,3 +121,8 @@ html, body {
   font-weight: 700;
   font-style: italic;
 }
+
+/* iOS Safari safe area support */
+.pb-safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
