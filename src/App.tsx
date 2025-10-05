@@ -77,7 +77,7 @@ function App() {
             )}
           </div>
           <button
-            onClick={() => navigate("/instructions")}
+            onClick={() => navigate(isNewUser ? "/instructions" : "/play")}
             className="relative w-64 h-64 bg-red-600 rounded-full hover:bg-red-700 transition-all transform hover:scale-105 z-10 border-t-[12px] border-l-[12px] border-b-[6px] border-r-[6px] border-t-red-400 border-l-red-400 border-b-red-900 border-r-red-900"
             style={{ marginTop: '15rem' }}
           >
