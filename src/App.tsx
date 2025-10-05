@@ -7,7 +7,7 @@ import { Play } from './pages/Play'
 import { PostThrow } from './pages/PostThrow'
 import { Leaderboard } from './pages/Leaderboard'
 import { Home as HomePage } from './pages/Home'
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/react"
 
 function App() {
   const [throwData, setThrowData] = useState<{
