@@ -5,6 +5,7 @@ import { Start } from './pages/Start'
 import { Play } from './pages/Play'
 import { PostThrow } from './pages/PostThrow'
 import { Leaderboard } from './pages/Leaderboard'
+import { FallingBlocks } from './components/FallingBlocks'
 import { useEnsureSignedIn } from './useSupabaseAuth'
 import { generateRandomUsername } from './utils/usernameGenerator'
 import { updateUsername, getUsername } from './supabaseClient'
@@ -20,6 +21,7 @@ function App() {
     coords: [number, number, number][]
   } | null>(null)
   const [username, setUsername] = useState<string>('')
+  const [isNewUser, setIsNewUser] = useState<boolean>(false)
 
   // supabase auth
   const { session, loading } = useEnsureSignedIn()
@@ -31,14 +33,16 @@ function App() {
       const { username: existingUsername } = await getUsername();
       
       if (existingUsername) {
-        // User already has a username, use it
+        // User already has a username, use it (returning user)
         console.log('Using existing username:', existingUsername);
         setUsername(existingUsername);
+        setIsNewUser(false);
       } else {
-        // No existing username, generate a new one
+        // No existing username, generate a new one (new user)
         const newUsername = generateRandomUsername();
         console.log('Generated new username:', newUsername);
         setUsername(newUsername);
+        setIsNewUser(true);
         await updateUsername(newUsername);
       }
     };
@@ -49,7 +53,12 @@ function App() {
   }, [loading, session, username])
 
   const handleGo = () => {
-    setCurrentPage('instructions')
+    // New users see instructions, returning users skip directly to start
+    if (isNewUser) {
+      setCurrentPage('instructions')
+    } else {
+      setCurrentPage('start')
+    }
   }
 
   const handleClose = () => {
@@ -109,9 +118,11 @@ function App() {
       </header> */}
       
       {currentPage === 'home' && (
-        <div className="flex flex-col items-center justify-center min-h-screen text-white relative">
-          {/* Session info/debug widget */}
-          <div className="absolute top-4 right-4 text-xs text-gray-300 bg-white/5 border border-white/10 rounded px-3 py-2 max-w-[50vw] overflow-auto">
+        <>
+          <FallingBlocks />
+          <div className="flex flex-col items-center justify-center min-h-screen text-white relative">
+            {/* Session info/debug widget */}
+            <div className="absolute top-4 right-4 text-xs text-gray-300 bg-white/5 border border-white/10 rounded px-3 py-2 max-w-[50vw] overflow-auto z-10">
             {loading ? (
               <span>Loading session…</span>
             ) : session ? (
@@ -129,13 +140,15 @@ function App() {
               <span>No session</span>
             )}
           </div>
-          <button
-            onClick={handleGo}
-            className="relative w-48 h-48 bg-red-600 rounded-full hover:bg-red-700 transition-all transform hover:scale-105 shadow-2xl"
-          >
-            <span className="text-4xl font-bold text-white">GO</span>
-          </button>
-        </div>
+            <button
+              onClick={handleGo}
+              className="relative w-64 h-64 bg-red-600 rounded-full hover:bg-red-700 transition-all transform hover:scale-105 z-10 border-t-[12px] border-l-[12px] border-b-[6px] border-r-[6px] border-t-red-400 border-l-red-400 border-b-red-900 border-r-red-900"
+              style={{ marginTop: '15rem' }}
+            >
+              <span className="text-5xl font-bold text-white alfa-slab-one-regular">GO</span>
+            </button>
+          </div>
+        </>
       )}
       {currentPage === 'instructions' && (
         <Instructions onNext={handleNext} onSkip={handleSkip} />

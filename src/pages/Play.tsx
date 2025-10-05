@@ -13,8 +13,8 @@ export function Play({ onClose: _onClose, onFinish }: PlayProps) {
             setShowContinue(true);
             
             // TODO: replace these placeholder values with actual sensor data
-            const height = 1.5; // meters
-            const flips = 2;
+            const height = Math.random() * 5; // random number between 0 and 5 meters
+            const flips = Math.floor(Math.random() * 21); // random integer between 0 and 20
             const duration = 1.0; // seconds
             const coords: [number, number, number][] = [
                 [0, 0, 0],

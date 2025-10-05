@@ -28,6 +28,7 @@ export function Leaderboard({ username: initialUsername, onUsernameChange, onBac
     const [flipsData, setFlipsData] = useState<FlipsPREntry[]>([])
     const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(true)
     const [activeTab, setActiveTab] = useState<LeaderboardTab>('height')
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
     // Fetch leaderboard data when component mounts
     useEffect(() => {
@@ -59,6 +60,7 @@ export function Leaderboard({ username: initialUsername, onUsernameChange, onBac
 
     const handlePublish = async () => {
         setIsPublishing(true)
+        setErrorMessage(null)
         console.log('Updating username to:', username)
         
         // Update username in Supabase
@@ -81,25 +83,29 @@ export function Leaderboard({ username: initialUsername, onUsernameChange, onBac
             }
         } else {
             console.error('Failed to update username:', error)
+            setErrorMessage('Username already exists.')
+            // Auto-hide error after 3 seconds
+            setTimeout(() => setErrorMessage(null), 3000)
         }
         
         setIsPublishing(false)
     }
 
     return (
-        <div className="flex flex-col items-center min-h-screen bg-slate-800 text-white p-1">
-            {/* Back button */}
-            <div className="w-full max-w-2xl mb-4">
-                <button
-                    onClick={onBack}
-                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-gray-500 border-l-gray-500 border-b-gray-900 border-r-gray-900">
-                    ← BACK
-                </button>
-            </div>
+        <div className="flex flex-col bg-slate-800 text-white" style={{ height: '100dvh' }}>
+            <div className="flex-shrink-0 w-full max-w-2xl mx-auto p-1">
+                {/* Back button */}
+                <div className="mb-4">
+                    <button
+                        onClick={onBack}
+                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-gray-500 border-l-gray-500 border-b-gray-900 border-r-gray-900">
+                        ← BACK
+                    </button>
+                </div>
 
-            {/* Username Input and Change Button */}
-            <div className="w-full max-w-2xl mb-6">
-                <div className="bg-gray-800 p-1">
+                {/* Username Input and Change Button */}
+                <div className="mb-6 relative">
+                    <div className="bg-gray-800 p-1">
                     <div className="flex items-center gap-2">
                         <span className="text-white text-lg whitespace-nowrap flex-shrink-0 alfa-slab-one-regular">I am</span>
                         <input
@@ -107,10 +113,13 @@ export function Leaderboard({ username: initialUsername, onUsernameChange, onBac
                             type="text"
                             value={username}
                             onChange={(e) => {
-                                setUsername(e.target.value)
-                                onUsernameChange(e.target.value)
+                                const newValue = e.target.value.slice(0, 20)
+                                setUsername(newValue)
+                                onUsernameChange(newValue)
+                                setErrorMessage(null)
                             }}
                             placeholder="..."
+                            maxLength={20}
                             className="flex-1 min-w-0 px-2 py-2 text-lg bg-green-600 text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-blue-500 alfa-slab-one-regular border-t-2 border-l-2 border-b border-r border-t-green-400 border-l-green-400 border-b-green-900 border-r-green-900"
                         />
                         <button
@@ -127,11 +136,18 @@ export function Leaderboard({ username: initialUsername, onUsernameChange, onBac
                             )}
                         </button>
                     </div>
+                    {errorMessage && (
+                        <div className="absolute left-0 right-0 mt-1 px-2 py-1 bg-red-600 text-white text-xs alfa-slab-one-regular border-t-2 border-l-2 border-b border-r border-t-red-400 border-l-red-400 border-b-red-900 border-r-red-900 z-10">
+                            {errorMessage}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Leaderboard */}
-            <div className="w-full max-w-2xl">
+            </div>
+
+            {/* Leaderboard - Scrollable */}
+            <div className="flex-1 w-full max-w-2xl mx-auto overflow-y-auto px-1" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
                 <div className="bg-gray-800 p-1">
                     <h2 className="text-2xl font-bold mb-4 text-center alfa-slab-one-regular">LEADERBOARD</h2>
                     
