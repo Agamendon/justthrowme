@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
+import { usePostHog } from 'posthog-js/react';
 import { 
     useSensorRecorder, 
     computeHeightMethod1FromRecord, 
@@ -14,6 +15,7 @@ interface PlayProps {
 
 export function Play({ setThrowData }: PlayProps) {
     const navigate = useNavigate();
+    const posthog = usePostHog();
     const [hasStarted, setHasStarted] = useState(false);
     const rafRef = useRef<number | null>(null);
     
@@ -142,12 +144,39 @@ export function Play({ setThrowData }: PlayProps) {
                     duration: duration.toFixed(3),
                     v0: result.v0.toFixed(3)
                 });
+                
+                // Log throw data to Posthog
+                posthog.capture('throw_completed', {
+                    height: parseFloat(height.toFixed(3)),
+                    flips: flips,
+                    duration: parseFloat(duration.toFixed(3)),
+                    initial_velocity: parseFloat(result.v0.toFixed(3)),
+                    release_index: result.indices.release,
+                    catch_index: result.indices.catch,
+                    max_acceleration: Math.max(...data.worldAccels.map(s => 
+                        Math.sqrt(s.x * s.x + s.y * s.y + s.z * s.z)
+                    )),
+                    sample_count: data.worldAccels.length,
+                    analysis_method: 'method1',
+                    stationary_threshold: STATIONARY_THRESH,
+                    stationary_window_ms: STATIONARY_MS,
+                    smooth_n: SMOOTH_N,
+                    world_accels: data.worldAccels
+                });
             } else {
                 console.error('Failed to analyze throw:', result.reason);
                 // Use fallback values if analysis failed
                 height = 0;
                 flips = 0;
                 duration = 1.0;
+                
+                // Log failed analysis to Posthog
+                posthog.capture('throw_analysis_failed', {
+                    reason: result.reason,
+                    sample_count: data.worldAccels.length,
+                    has_accel_data: data.worldAccels.length > 0,
+                    has_gyro_data: data.worldOmegas.length > 0
+                });
             }
             
             // Create trajectory coords (simplified)
