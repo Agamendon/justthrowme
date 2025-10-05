@@ -51,16 +51,16 @@ export function FallingBlocks() {
     context.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1)
 
     // Create three blocks with text
-    const blockWidth = 200
-    const blockHeight = 100
+    const blockWidth = 160
+    const blockHeight = 80
 
     // Random helper function for position variation
     const randomOffset = (base: number, range: number) => base + (Math.random() - 0.5) * range
 
-    // THE block (positioned to fall from left-center area with randomization)
+    // THE block (positioned to fall from left-center area)
     const theBlock = Bodies.rectangle(
-      randomOffset(width * 0.3, 100),
-      randomOffset(-100, 50),
+      width * 0.4,
+      -300,
       blockWidth,
       blockHeight,
       {
@@ -76,10 +76,10 @@ export function FallingBlocks() {
       }
     )
 
-    // FLIP block (positioned to fall from center with randomization)
+    // FLIP block (positioned to fall from center)
     const flipBlock = Bodies.rectangle(
-      randomOffset(width * 0.5, 100),
-      randomOffset(-250, 50),
+      width * 0.55,
+      -200,
       blockWidth,
       blockHeight,
       {
@@ -95,10 +95,10 @@ export function FallingBlocks() {
       }
     )
 
-    // OFF block (positioned to fall from right-center area with randomization)
+    // OFF block (positioned to fall from right-center area)
     const offBlock = Bodies.rectangle(
-      randomOffset(width * 0.7, 100),
-      randomOffset(-150, 50),
+      width * 0.4,
+      -100,
       blockWidth,
       blockHeight,
       {
@@ -114,15 +114,19 @@ export function FallingBlocks() {
       }
     )
 
-    // Add randomized initial angular velocity for more dynamic motion
-    Body.setAngularVelocity(theBlock, (Math.random() - 0.5) * 0.1)
-    Body.setAngularVelocity(flipBlock, (Math.random() - 0.5) * 0.1)
-    Body.setAngularVelocity(offBlock, (Math.random() - 0.5) * 0.1)
+    // Set blocks to start in horizontal position with no rotation
+    Body.setAngle(theBlock, 0)
+    Body.setAngle(flipBlock, 0)
+    Body.setAngle(offBlock, 0)
+    
+    Body.setAngularVelocity(theBlock, 0)
+    Body.setAngularVelocity(flipBlock, 0)
+    Body.setAngularVelocity(offBlock, 0)
 
     // Create ground (positioned higher, above the GO button)
     const ground = Bodies.rectangle(
       width / 2,
-      height - 400,
+      height - 350,
       width,
       60,
       {
@@ -167,8 +171,47 @@ export function FallingBlocks() {
       }
     )
 
+    // Create funnel walls (angled inward to guide blocks to center)
+    const funnelWidth = 500 // Width of the bucket area at bottom
+    const funnelTopY = height / 2 // Start funnel higher up
+    const funnelBottomY = height - 350 // Bottom at ground level
+    const funnelWallLength = Math.sqrt(Math.pow(funnelBottomY - funnelTopY, 2) + Math.pow(width * 0.4, 2))
+    const funnelAngle = Math.atan2(width * 0.2, funnelBottomY - funnelTopY) // Calculate angle based on geometry
+    
+    const leftFunnel = Bodies.rectangle(
+      width / 2 - funnelWidth / 2 - (width * 0.2) / 2,
+      (funnelTopY + funnelBottomY) / 2,
+      20,
+      funnelWallLength,
+      {
+        isStatic: true,
+        angle: -funnelAngle,
+        render: {
+          fillStyle: 'transparent',
+          strokeStyle: 'transparent',
+          lineWidth: 0
+        }
+      }
+    )
+
+    const rightFunnel = Bodies.rectangle(
+      width / 2 + funnelWidth / 2 + (width * 0.2) / 2,
+      (funnelTopY + funnelBottomY) / 2,
+      20,
+      funnelWallLength,
+      {
+        isStatic: true,
+        angle: funnelAngle,
+        render: {
+          fillStyle: 'transparent',
+          strokeStyle: 'transparent',
+          lineWidth: 0
+        }
+      }
+    )
+
     // Add all bodies to the world
-    World.add(engine.world, [theBlock, flipBlock, offBlock, ground, leftWall, rightWall])
+    World.add(engine.world, [theBlock, flipBlock, offBlock, ground, leftWall, rightWall, leftFunnel, rightFunnel])
 
     // Run the engine
     const runner = Runner.create()

@@ -47,7 +47,7 @@ export function Home({ username, setUsername }: HomeProps) {
     <>
       <FallingBlocks />
       <div className="flex flex-col items-center justify-center min-h-screen text-white relative">
-        {/* Session info/debug widget */}
+        {/* Session info/debug widget
         <div className="absolute top-4 right-4 text-xs text-gray-300 bg-white/5 border border-white/10 rounded px-3 py-2 max-w-[50vw] overflow-auto z-10">
           {loading ? (
             <span>Loading session…</span>
@@ -69,7 +69,7 @@ export function Home({ username, setUsername }: HomeProps) {
           ) : (
             <span>No session</span>
           )}
-        </div>
+        </div> */}
         <button
           onClick={() => navigate(isNewUser ? "/instructions" : "/play")}
           className="relative w-64 h-64 bg-red-600 rounded-full hover:bg-red-700 transition-all transform hover:scale-105 z-10 border-t-[12px] border-l-[12px] border-b-[6px] border-r-[6px] border-t-red-400 border-l-red-400 border-b-red-900 border-r-red-900"
