@@ -12,9 +12,9 @@ export function Instructions() {
               Here's how to play:
             </p>
             <ul className="text-left space-y-2 text-lg alfa-slab-one-regular">
-              <li>1. Throw</li>
-              <li>2. Spin</li>
-              <li>3. Survive</li>
+              <li>1. Throw your phone</li>
+              <li>2. Catch it</li>
+              <li>3. Share your results</li>
             </ul>
           </div>
           <div className="flex gap-4">
