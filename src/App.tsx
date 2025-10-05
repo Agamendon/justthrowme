@@ -7,6 +7,7 @@ import { Play } from './pages/Play'
 import { PostThrow } from './pages/PostThrow'
 import { Leaderboard } from './pages/Leaderboard'
 import { Home as HomePage } from './pages/Home'
+import { Analytics } from "@vercel/analytics/next"
 
 function App() {
   const [throwData, setThrowData] = useState<{
@@ -19,6 +20,7 @@ function App() {
 
   return (
     <div className="bg-slate-800">
+      <Analytics/>
       <Routes>
         <Route path="/" element={<HomePage username={username} setUsername={setUsername} />} />
         <Route path="/instructions" element={<Instructions />} />
