@@ -19,7 +19,7 @@ export function PostThrow({ height, flips }: PostThrowProps) {
     }
 
     return (
-        <div className="flex flex-col bg-slate-800 text-white" style={{ height: '100dvh' }}>
+        <div className="flex flex-col bg-slate-800 text-white px-2" style={{ height: '100dvh' }}>
             {/* Centered Numbers and All Buttons */}
             <div className="flex-1 flex items-center justify-center px-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
                 <div className="w-full max-w-md bg-gray-800 p-5">
