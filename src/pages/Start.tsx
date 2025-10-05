@@ -1,8 +1,7 @@
-interface StartProps {
-  onStart: () => void;
-}
+import { useNavigate } from 'react-router-dom';
 
-export function Start({ onStart }: StartProps) {
+export function Start() {
+  const navigate = useNavigate();
   return (
     <div className="flex flex-col bg-slate-800 text-white" style={{ height: '100dvh' }}>
       <div className="flex-1 flex items-center justify-center px-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
@@ -11,7 +10,7 @@ export function Start({ onStart }: StartProps) {
           <div className="text-center space-y-6">
             <div className="flex flex-col items-center">
               <button
-                onClick={onStart}
+                onClick={() => navigate('/play')}
                 className="w-full py-6 bg-green-600 hover:bg-green-700 text-white text-2xl font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-green-400 border-l-green-400 border-b-green-900 border-r-green-900"
               >
                 THROW

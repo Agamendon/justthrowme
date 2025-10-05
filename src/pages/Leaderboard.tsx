@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom';
 import { updateUsername, getTopHeightPRs, getTopFlipsPRs } from '../supabaseClient'
 
 interface LeaderboardProps {
     username: string,
-    onUsernameChange: (username: string) => void,
-    onBack: () => void
+    onUsernameChange: (username: string) => void
 }
 
 interface HeightPREntry {
@@ -21,7 +21,8 @@ interface FlipsPREntry {
 
 type LeaderboardTab = 'height' | 'flips'
 
-export function Leaderboard({ username: initialUsername, onUsernameChange, onBack }: LeaderboardProps) {
+export function Leaderboard({ username: initialUsername, onUsernameChange }: LeaderboardProps) {
+    const navigate = useNavigate();
     const [username, setUsername] = useState(initialUsername)
     const [isPublishing, setIsPublishing] = useState(false)
     const [heightData, setHeightData] = useState<HeightPREntry[]>([])
@@ -92,16 +93,15 @@ export function Leaderboard({ username: initialUsername, onUsernameChange, onBac
     }
 
     return (
-        <div className="flex flex-col bg-slate-800 text-white" style={{ height: '100dvh' }}>
-            <div className="flex-shrink-0 w-full max-w-2xl mx-auto p-1">
-                {/* Back button */}
-                <div className="mb-4">
-                    <button
-                        onClick={onBack}
-                        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-gray-500 border-l-gray-500 border-b-gray-900 border-r-gray-900">
-                        ← BACK
-                    </button>
-                </div>
+        <div className="flex flex-col items-center min-h-screen bg-slate-800 text-white p-1">
+            {/* Back button */}
+            <div className="w-full max-w-2xl mb-4">
+                <button
+                    onClick={() => navigate('/postthrow')}
+                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-gray-500 border-l-gray-500 border-b-gray-900 border-r-gray-900">
+                    ← BACK
+                </button>
+            </div>
 
                 {/* Username Input and Change Button */}
                 <div className="mb-6 relative">
@@ -144,7 +144,6 @@ export function Leaderboard({ username: initialUsername, onUsernameChange, onBac
                 </div>
             </div>
 
-            </div>
 
             {/* Leaderboard - Scrollable */}
             <div className="flex-1 w-full max-w-2xl mx-auto overflow-y-auto px-1" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>

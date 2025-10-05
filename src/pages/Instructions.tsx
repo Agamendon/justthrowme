@@ -1,9 +1,7 @@
-interface InstructionsProps {
-  onNext: () => void;
-  onSkip: () => void;
-}
+import { useNavigate } from 'react-router-dom';
 
-export function Instructions({ onNext, onSkip }: InstructionsProps) {
+export function Instructions() {
+  const navigate = useNavigate();
   return (
     <div className="flex flex-col bg-slate-800 text-white" style={{ height: '100dvh' }}>
       <div className="flex-1 flex items-center justify-center px-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
@@ -21,7 +19,13 @@ export function Instructions({ onNext, onSkip }: InstructionsProps) {
           </div>
           <div className="flex gap-4">
             <button
-              onClick={onNext}
+              onClick={() => navigate('/start')}
+              className="flex-1 py-3 px-6 bg-gray-700 hover:bg-gray-600 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-gray-500 border-l-gray-500 border-b-gray-900 border-r-gray-900"
+            >
+              SKIP
+            </button>
+            <button
+              onClick={() => navigate('/disclaimer')}
               className="flex-1 py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-green-400 border-l-green-400 border-b-green-900 border-r-green-900"
             >
               CONTINUE

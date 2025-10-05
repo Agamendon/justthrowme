@@ -1,12 +1,14 @@
+import { useNavigate } from 'react-router-dom';
+
 interface PostThrowProps {
     height: number,
     flips: number,
     duration: number,
-    coords: [number, number, number][],
-    onViewLeaderboard: () => void
+    coords: [number, number, number][]
 }
 
-export function PostThrow({ height, flips, onViewLeaderboard }: PostThrowProps) {
+export function PostThrow({ height, flips }: PostThrowProps) {
+    const navigate = useNavigate();
 
     const handleShare = () => {
         console.log('Sharing throw...')
@@ -58,7 +60,7 @@ export function PostThrow({ height, flips, onViewLeaderboard }: PostThrowProps) 
 
                     {/* View Leaderboard Button */}
                     <button
-                        onClick={onViewLeaderboard}
+                        onClick={() => navigate('/leaderboard')}
                         className="w-full text-xl bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-green-400 border-l-green-400 border-b-green-900 border-r-green-900">
                         LEADERBOARD
                     </button>

@@ -1,43 +1,31 @@
-import { useState } from 'react'
+import { useNavigate } from 'react-router-dom';
 
-interface DisclaimerProps {
-  onNext: () => void;
-  onSkip: () => void;
-}
+export function Disclaimer() {
+  const navigate = useNavigate();
+  const requestPermissions = async () => {
+    try {
+      const dm: any = (window as any).DeviceMotionEvent;
+      const dor: any = (window as any).DeviceOrientationEvent;
+      const needsPermission =
+        (dm && typeof dm.requestPermission === "function") ||
+        (dor && typeof dor.requestPermission === "function");
 
-export function Disclaimer({ onNext, onSkip }: DisclaimerProps) {
-  const [permissionError, setPermissionError] = useState<string | null>(null)
-  const [isRequesting, setIsRequesting] = useState(false)
-
-  const handleAgree = async () => {
-    setIsRequesting(true)
-    setPermissionError(null)
-
-    // Check if device motion permission is needed (iOS 13+)
-    if (typeof DeviceMotionEvent !== 'undefined' && 
-        typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-      try {
-        const permission = await (DeviceMotionEvent as any).requestPermission()
-        
-        if (permission === 'granted') {
-          console.log('Motion sensor permission granted')
-          onNext()
-        } else {
-          console.log('Motion sensor permission denied')
-          setPermissionError('Motion sensor access is required to use this app. Please grant permission to continue.')
-        }
-      } catch (error) {
-        console.error('Error requesting motion permission:', error)
-        setPermissionError('Failed to request motion sensor permission. Please try again.')
-      } finally {
-        setIsRequesting(false)
+      if (needsPermission) {
+        const reqs: Promise<string>[] = [];
+        if (dm?.requestPermission) reqs.push(dm.requestPermission());
+        if (dor?.requestPermission) reqs.push(dor.requestPermission());
+        const results = await Promise.allSettled(reqs);
+        const ok = results.some(
+          (r) => r.status === "fulfilled" && r.value === "granted"
+        );
+        if (!ok) throw new Error("Motion/Orientation permission was not granted");
       }
-    } else {
-      // Not iOS or permission not required, continue normally
-      console.log('Motion sensor permission not required on this device')
-      onNext()
+
+      navigate('/start');
+    } catch (err) {
+      alert("Could not enable sensor permissions. Please try again.");
     }
-  }
+  };
 
   return (
     <div className="flex flex-col text-white" style={{ height: '100dvh' }}>
@@ -53,19 +41,24 @@ export function Disclaimer({ onNext, onSkip }: DisclaimerProps) {
                 <li>Give motion permission.</li>
               </ul>
             </div>
-            {permissionError && (
+            {/* {permissionError && (
               <div className="bg-red-600 p-3 text-white text-sm alfa-slab-one-regular border-t-2 border-l-2 border-b border-r border-t-red-400 border-l-red-400 border-b-red-900 border-r-red-900">
                 {permissionError}
               </div>
-            )}
+            )} */}
           </div>
           <div className="flex gap-4">
             <button
-              onClick={handleAgree}
-              disabled={isRequesting}
-              className="flex-1 py-3 px-6 bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-green-400 border-l-green-400 border-b-green-900 border-r-green-900 disabled:border-t-green-300 disabled:border-l-green-300"
+              onClick={() => navigate('/start')}
+              className="flex-1 py-3 px-6 bg-gray-700 hover:bg-gray-600 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-gray-500 border-l-gray-500 border-b-gray-900 border-r-gray-900"
             >
-              {isRequesting ? 'REQUESTING...' : 'I AGREE'}
+              SKIP
+            </button>
+            <button
+              onClick={requestPermissions}
+              className="flex-1 py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-bold transition-colors alfa-slab-one-regular border-t-4 border-l-4 border-b-2 border-r-2 border-t-green-400 border-l-green-400 border-b-green-900 border-r-green-900"
+            >
+              'I AGREE'
             </button>
           </div>
         </div>

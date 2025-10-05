@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom';
 
 interface PlayProps {
-    onClose: () => void;
-    onFinish: (height: number, flips: number, duration: number, coords: [number, number, number][]) => void;
+    throwData: any;
+    setThrowData: (data: any) => void;
 }
 
-export function Play({ onClose: _onClose, onFinish }: PlayProps) {
+export function Play({ setThrowData }: PlayProps) {
+    const navigate = useNavigate();
     const [showContinue, setShowContinue] = useState(false);
 
     useEffect(() => {
@@ -22,12 +24,30 @@ export function Play({ onClose: _onClose, onFinish }: PlayProps) {
                 [1.0, 0, 1.0]
             ];
             
-            onFinish(height, flips, duration, coords);
+            // Save throw data and navigate
+            const handleFinish = async () => {
+                setThrowData({ height, flips, duration, coords });
+                
+                // Save attempt to database immediately when throw finishes
+                console.log('Saving attempt to database:', { height, flips });
+                const { insertAttempt } = await import('../supabaseClient');
+                const { success, error } = await insertAttempt(height, flips);
+                
+                if (success) {
+                    console.log('Attempt saved successfully to database');
+                } else {
+                    console.error('Failed to save attempt:', error);
+                }
+                
+                navigate('/postthrow');
+            };
+            
+            handleFinish();
         }, 1000);
 
         // clean timer on unmount
         return () => clearTimeout(timer);
-    }, [onFinish]);
+    }, [setThrowData, navigate]);
 
     return (
         <div className="flex items-center justify-center min-h-screen">

@@ -4,7 +4,7 @@ export function Home() {
   const navigate = useNavigate()
 
   const handleStart = () => {
-    navigate('/instructions')
+    navigate('/onboarding/instructions')
   }
 
   return (
