@@ -21,7 +21,7 @@ export function Disclaimer() {
         if (!ok) throw new Error("Motion/Orientation permission was not granted");
       }
 
-      navigate('/start');
+      navigate('/play');
     } catch (err) {
       alert("Could not enable sensor permissions. Please try again.");
     }

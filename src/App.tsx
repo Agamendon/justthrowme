@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Instructions } from './pages/Instructions'
 import { Disclaimer } from './pages/Disclaimer'
-import { Start } from './pages/Start'
 import { Play } from './pages/Play'
 import { PostThrow } from './pages/PostThrow'
 import { Leaderboard } from './pages/Leaderboard'
@@ -25,7 +24,6 @@ function App() {
         <Route path="/" element={<HomePage username={username} setUsername={setUsername} />} />
         <Route path="/instructions" element={<Instructions />} />
         <Route path="/disclaimer" element={<Disclaimer />} />
-        <Route path="/start" element={<Start />} />
         <Route path="/play" element={<Play throwData={throwData} setThrowData={setThrowData} />} />
         <Route
           path="/postthrow"
