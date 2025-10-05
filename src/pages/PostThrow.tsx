@@ -15,7 +15,7 @@ export function PostThrow({ height, flips }: PostThrowProps) {
     }
 
     const handleReplay = () => {
-        console.log('Replaying...')
+        navigate('/play')
     }
 
     return (
